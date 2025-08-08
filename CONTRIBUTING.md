@@ -5,9 +5,6 @@ Interface\! We are thrilled you're interested in helping us build a tool "where
 scattered thoughts become structured adventures." Your contributions are
 invaluable in making NQI a powerful, affirming, and community-driven project.
 
-This project is intended to be a safe, welcoming space for collaboration, and
-contributors are expected to adhere to our [Code of Conduct](https://www.google.com/search?q=CODE_OF_CONDUCT.md).
-
 ## **Table of Contents**
 
 - [How Can I Contribute?](https://www.google.com/search?q=%23how-can-i-contribute)
@@ -24,8 +21,8 @@ contributors are expected to adhere to our [Code of Conduct](https://www.google.
 ### **Reporting Bugs**
 
 If you find a bug, please ensure the bug has not already been reported by
-searching on GitHub under [Issues](https://www.google.com/search?q=https://github.com/your-username/nqi/issues).
-If you're unable to find an open issue addressing the problem, [open a new one](https://www.google.com/search?q=https://github.com/your-username/nqi/issues/new).
+searching on GitHub under [Issues](https://www.google.com/search?q=https://github.com/rghsoftware/nqi/issues).
+If you're unable to find an open issue addressing the problem, [open a new one](https://www.google.com/search?q=https://github.com/rghsoftware/nqi/issues/new).
 Be sure to include a **title and clear description**, as much relevant
 information as possible, and a **code sample or an executable test case**
 demonstrating the expected behavior that is not occurring.
@@ -35,8 +32,8 @@ Please use the **Bug Report** template when creating the issue.
 ### **Suggesting Enhancements**
 
 If you have an idea for a new feature or an enhancement to an existing one,
-we'd love to hear it\! Please check the existing [Issues](https://www.google.com/search?q=https://github.com/your-username/nqi/issues)
-to see if your idea has been discussed. If not, please [open a new issue](https://www.google.com/search?q=https://github.com/your-username/nqi/issues/new)
+we'd love to hear it\! Please check the existing [Issues](https://www.google.com/search?q=https://github.com/rghsoftware/nqi/issues)
+to see if your idea has been discussed. If not, please [open a new issue](https://www.google.com/search?q=https://github.com/rghsoftware/nqi/issues/new)
 using the **Feature Request** template.
 
 ### **Your First Code Contribution**

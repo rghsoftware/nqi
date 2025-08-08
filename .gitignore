@@ -127,3 +127,4 @@ nqi
 
 # Environment variables file
 .env
+!.env.example

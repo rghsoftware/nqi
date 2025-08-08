@@ -15,7 +15,6 @@ contributors are expected to adhere to our [Code of Conduct](https://www.google.
   - [Suggesting Enhancements](https://www.google.com/search?q=%23suggesting-enhancements)
   - [Your First Code Contribution](https://www.google.com/search?q=%23your-first-code-contribution)
 - [Pull Request Process](https://www.google.com/search?q=%23pull-request-process)
-- [Contributor License Agreement (CLA)](https://www.google.com/search?q=%23contributor-license-agreement-cla)
 - [Style Guides](https://www.google.com/search?q=%23style-guides)
   - [Git Commit Messages](https://www.google.com/search?q=%23git-commit-messages)
   - [Code Style](https://www.google.com/search?q=%23code-style)
@@ -58,22 +57,6 @@ first issue and help wanted issues:
 4. Ensure the test suite passes.
 5. Make sure your code lints.
 6. Issue that pull request\!
-
-## **Contributor License Agreement (CLA)**
-
-Before we can accept your pull request, you **must** sign our Contributor License
-Agreement (CLA).
-
-Why a CLA?  
-The NQI project is licensed under the AGPL-3, but to run a sustainable project
-with a cloud service, we need to be able to re-license the code under a
-commercial license for that service. The CLA grants us the copyright to your
-contribution, allowing us to do this. This is a standard and necessary practice
-for open-core projects.  
-How to sign?  
-A CLA-bot will automatically comment on your first pull request with a link to
-sign the agreement. It's a quick, automated process. We cannot merge any pull
-requests until the CLA is signed.
 
 ## **Style Guides**
 

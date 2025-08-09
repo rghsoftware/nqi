@@ -37,6 +37,7 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		v1.POST("/users/register", userHandler.RegisterUser)
+		v1.POST("/users/login", userHandler.LoginUser)
 	}
 
 	err = router.Run(":8081")

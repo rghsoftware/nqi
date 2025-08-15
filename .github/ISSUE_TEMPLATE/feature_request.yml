@@ -1,0 +1,39 @@
+name: ✨ Feature Request
+description: Suggest an idea that would help your ADHD workflow
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got an idea? We'd love to hear it!
+        Remember: there are no bad ideas, especially from lived experience.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the ADHD challenge you're facing
+      placeholder: |
+        I often forget...
+        I struggle with...
+        It's hard to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe your idea
+      description: How would this feature help?
+      placeholder: It would be great if...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Have you tried any workarounds?
+      description: Optional - share what you're doing now
+    validations:
+      required: false

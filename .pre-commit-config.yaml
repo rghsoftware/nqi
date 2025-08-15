@@ -31,16 +31,16 @@ repos:
     hooks:
       - id: dart-format
         name: Format Dart code
-        entry: bash -c 'cd mobile && dart format --set-exit-if-changed lib/ test/'
+        entry: bash -c 'cd frontend && dart format --set-exit-if-changed lib/ test/'
         language: system
-        files: ^mobile/.*\.dart$
+        files: ^frontend/.*\.dart$
         pass_filenames: false
 
       - id: flutter-analyze
         name: Analyze Flutter code
-        entry: bash -c 'cd mobile && flutter analyze'
+        entry: bash -c 'cd frontend && flutter analyze'
         language: system
-        files: ^mobile/.*\.dart$
+        files: ^frontend/.*\.dart$
         pass_filenames: false
 
   # General checks

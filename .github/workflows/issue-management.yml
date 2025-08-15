@@ -1,0 +1,85 @@
+name: Issue Management
+
+on:
+  issues:
+    types: [opened, closed]
+
+jobs:
+  manage-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add new issue to Idea Greenhouse
+        if: github.event.action == 'opened'
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/${{ github.repository_owner }}/projects/1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          labeled: needs-triage
+          label-operator: OR
+
+      - name: Add needs-triage label to new issues
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['needs-triage']
+            })
+
+      - name: Check if issue was closed without PR
+        if: github.event.action == 'closed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get all pull requests that reference this issue
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all'
+            });
+
+            const issueNumber = context.issue.number;
+            let hasAssociatedPR = false;
+
+            // Check if any PR references this issue in body or title
+            for (const pull of pulls.data) {
+              const prBody = pull.body || '';
+              const prTitle = pull.title || '';
+              const searchText = `${prBody} ${prTitle}`.toLowerCase();
+
+              // Look for common patterns that link PRs to issues
+              const patterns = [
+                `#${issueNumber}`,
+                `fixes #${issueNumber}`,
+                `closes #${issueNumber}`,
+                `resolves #${issueNumber}`,
+                `fix #${issueNumber}`,
+                `close #${issueNumber}`,
+                `resolve #${issueNumber}`
+              ];
+
+              if (patterns.some(pattern => searchText.includes(pattern.toLowerCase()))) {
+                hasAssociatedPR = true;
+                break;
+              }
+            }
+
+            // If no associated PR found, determine appropriate label
+            if (!hasAssociatedPR) {
+              const issueBody = context.payload.issue.body || '';
+              const issueTitle = context.payload.issue.title || '';
+
+              // Simple heuristic: if issue mentions "duplicate" or similar terms
+              const isDuplicate = (issueBody + issueTitle).toLowerCase().includes('duplicate');
+              const label = isDuplicate ? 'duplicate' : 'wont-fix';
+
+              await github.rest.issues.addLabels({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: [label]
+              });
+            }

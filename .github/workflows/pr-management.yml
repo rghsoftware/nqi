@@ -7,42 +7,54 @@ on:
 jobs:
   manage-pull-requests:
     runs-on: ubuntu-latest
-    steps:
-      - name: Add new PR to In Review
-        if: github.event.action == 'opened'
-        uses: actions/add-to-project@v0.5.0
-        with:
-          project-url: https://github.com/users/${{ github.repository_owner }}/projects/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
 
-      - name: Move merged PR to Done and add completed label
+    steps:
+      - name: Add labels to new PRs
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            try {
+              await github.rest.issues.addLabels({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: ['in-review']
+              });
+              console.log('Successfully added in-review label');
+            } catch (error) {
+              console.error('Failed to add labels:', error.message);
+              throw error;
+            }
+
+      - name: Handle merged PRs
         if: github.event.action == 'closed' && github.event.pull_request.merged == true
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_PAT }}
           script: |
-            // Add completed label to merged PR
-            await github.rest.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['completed']
-            });
+            try {
+              await github.rest.issues.addLabels({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: ['completed']
+              });
+              console.log('Successfully added completed label to merged PR');
+            } catch (error) {
+              console.error('Failed to add completed label:', error.message);
+              throw error;
+            }
 
-            // Move to Done column in project board
-            // Note: This requires the project board to be configured with automation
-            // or additional API calls to move items between columns
-            console.log('PR merged and labeled as completed');
-
-      - name: Handle closed but not merged PR
+      - name: Handle closed but not merged PRs
         if: github.event.action == 'closed' && github.event.pull_request.merged == false
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_PAT }}
           script: |
-            console.log('PR was closed without merging - no additional action required');
-            // Optionally add a label for closed-without-merge PRs
-            // await github.rest.issues.addLabels({
-            //   issue_number: context.issue.number,
-            //   owner: context.repo.owner,
-            //   repo: context.repo.repo,
-            //   labels: ['closed-without-merge']
-            // });
+            console.log('PR was closed without merging - no action required');

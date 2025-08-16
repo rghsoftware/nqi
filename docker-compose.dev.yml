@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: nqi_postgres
+    environment:
+      POSTGRES_USER: nqi_user
+      POSTGRES_PASSWORD: nqi_password # pragma: allowlist secret
+      POSTGRES_DB: nqi_dev
+      POSTGRES_EXTENSIONS: pgvector,pg_trgm,uuid-ossp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nqi_user -d nqi_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nqi_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: nqi_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@nqi.local
+      PGADMIN_DEFAULT_PASSWORD: admin # pragma: allowlist secret
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False" # pragma: allowlist secret
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: nqi_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              count: all # Use all available GPUs
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: nqi_mailhog
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    environment:
+      MH_STORAGE: memory
+      MH_SMTP_BIND_ADDR: 0.0.0.0:1025
+      MH_API_BIND_ADDR: 0.0.0.0:8025
+      MH_UI_BIND_ADDR: 0.0.0.0:8025
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  ollama_data:
+
+networks:
+  default:
+    name: nqi_network

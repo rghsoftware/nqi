@@ -12,7 +12,7 @@ dev: ## Start development environment
 	@echo "✅ Development environment started"
 	@echo "📊 PgAdmin: http://localhost:5050"
 	@echo "📚 API Docs: http://localhost:8000/docs"
-	@echo "📱 Flutter: cd mobile && flutter run"
+	@echo "📱 Flutter: cd frontend && flutter run"
 
 .PHONY: stop
 stop: ## Stop development environment
@@ -37,17 +37,17 @@ backend-lint: ## Lint backend code
 	cd backend && uv run ruff format .
 
 # Frontend
-.PHONY: mobile-run
-mobile-run: ## Run mobile app
-	cd mobile && flutter run
+.PHONY: frontend-run
+frontend-run: ## Run frontend app
+	cd frontend && flutter run
 
-.PHONY: mobile-test
-mobile-test: ## Run mobile tests
-	cd mobile && flutter test
+.PHONY: frontend-test
+frontend-test: ## Run frontend tests
+	cd frontend && flutter test
 
-.PHONY: mobile-build-apk
-mobile-build-apk: ## Build Android APK
-	cd mobile && flutter build apk --release
+.PHONY: frontend-build-apk
+frontend-build-apk: ## Build Android APK
+	cd frontend && flutter build apk --release
 
 # Database
 .PHONY: db-migrate
@@ -93,4 +93,4 @@ clean: ## Clean generated files
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".mypy_cache" -exec rm -rf {} +
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	cd mobile && flutter clean
+	cd frontend && flutter clean

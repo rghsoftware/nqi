@@ -1,0 +1,99 @@
+{
+  "name": "NQI Development",
+  "dockerComposeFile": "../docker-compose.dev.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers-contrib/features/flutter-asdf:2": {
+      "version": "3.19.0"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+
+        "Dart-Code.dart-code",
+        "Dart-Code.flutter",
+
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+
+        "ms-azuretools.vscode-docker",
+
+        "eamodio.gitlens",
+        "mhutchie.git-graph",
+
+        "usernamehw.errorlens",
+        "aaron-bond.better-comments",
+        "wayou.vscode-todo-highlight",
+        "streetsidesoftware.code-spell-checker",
+
+        "johnpapa.vscode-peacock",
+        "vscode-icons-team.vscode-icons",
+        "oderwat.indent-rainbow",
+        "naumovs.color-highlight",
+        "IBM.output-colorizer"
+      ],
+
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.ruffEnabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "editor.rulers": [88],
+        "files.autoSave": "afterDelay",
+        "files.autoSaveDelay": 5000,
+
+        "workbench.colorTheme": "One Dark Pro",
+        "editor.minimap.enabled": false,
+        "editor.fontSize": 14,
+        "editor.lineHeight": 24,
+        "breadcrumbs.enabled": true,
+        "editor.stickyScroll.enabled": true,
+        "editor.bracketPairColorization.enabled": true,
+        "editor.guides.bracketPairs": true,
+
+        "sqltools.connections": [
+          {
+            "name": "NQI Dev",
+            "driver": "PostgreSQL",
+            "server": "postgres",
+            "port": 5432,
+            "database": "nqi_dev",
+            "username": "nqi_user",
+            "password": "nqi_password"
+          }
+        ]
+      }
+    }
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "remoteUser": "vscode",
+
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+    "source=nqi-vscode-extensions,target=/home/vscode/.vscode-server/extensions,type=volume"
+  ],
+
+  "forwardPorts": [8000, 5432, 6379, 5050, 8025, 11434, 3000]
+}

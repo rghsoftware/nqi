@@ -1,0 +1,416 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+    types: [opened, synchronize, reopened]
+
+env:
+  FLUTTER_VERSION: "3.19.0"
+  PYTHON_VERSION: "3.11"
+  UV_VERSION: "0.4.18"
+  NODE_VERSION: "20"
+
+jobs:
+  # =================================================
+  # Python Backend Pipeline
+  # =================================================
+  backend-lint:
+    name: Backend Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install dependencies with uv
+        working-directory: backend
+        run: |
+          echo "::group::Installing dependencies"
+          uv sync --dev
+          echo "::endgroup::"
+
+      - name: Run Ruff format check
+        working-directory: backend
+        run: |
+          echo "::group::Checking Python formatting"
+          uv run ruff format --check .
+          echo "::endgroup::"
+
+      - name: Run Ruff linter
+        working-directory: backend
+        run: |
+          echo "::group::Linting Python code"
+          uv run ruff check . --output-format=github
+          echo "::endgroup::"
+
+      - name: Run mypy type checking
+        working-directory: backend
+        run: |
+          echo "::group::Type checking"
+          uv run mypy app/ --junit-xml=mypy-report.xml
+          echo "::endgroup::"
+
+      - name: Upload mypy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-results
+          path: backend/mypy-report.xml
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: testpass # pragma: allowlist secret
+          POSTGRES_USER: testuser
+          POSTGRES_DB: nqi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install dependencies with uv
+        working-directory: backend
+        run: uv sync --dev
+
+      - name: Run database migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/nqi_test # pragma: allowlist secret
+        run: |
+          uv run alembic upgrade head
+
+      - name: Run tests with coverage
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/nqi_test # pragma: allowlist secret
+          REDIS_URL: redis://localhost:6379
+          SECRET_KEY: test-secret-key-for-ci-only-not-for-production # pragma: allowlist secret
+        run: |
+          echo "::group::Running pytest"
+          uv run pytest \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --junit-xml=pytest-report.xml \
+            -v
+          echo "::endgroup::"
+
+          echo "### Test Coverage Summary :test_tube:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          uv run coverage report >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: |
+            backend/pytest-report.xml
+            backend/htmlcov/
+
+  # =================================================
+  # Flutter Frontend Pipeline
+  # =================================================
+  frontend-lint:
+    name: Frontend Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Check Dart formatting
+        working-directory: mobile
+        run: |
+          echo "::group::Checking Dart formatting"
+          dart format --set-exit-if-changed lib/ test/
+          echo "::endgroup::"
+
+      - name: Analyze Dart code
+        working-directory: mobile
+        run: |
+          echo "::group::Analyzing Dart code"
+          flutter analyze --no-fatal-warnings
+          echo "::endgroup::"
+
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    needs: frontend-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Run tests with coverage
+        working-directory: mobile
+        run: |
+          echo "::group::Running Flutter tests"
+          flutter test --coverage --machine > test-results.json
+          echo "::endgroup::"
+
+          echo "### Flutter Test Results :flutter:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tests completed successfully ✅" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./mobile/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          fail_ci_if_error: false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-results
+          path: mobile/test-results.json
+
+  # =================================================
+  # Build Artifacts
+  # =================================================
+  build-mobile:
+    name: Build Mobile Apps
+    runs-on: ${{ matrix.os }}
+    needs: [frontend-test]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: apk
+            artifact-name: android-apk
+            artifact-path: build/app/outputs/flutter-apk/app-release.apk
+          - os: ubuntu-latest
+            target: appbundle
+            artifact-name: android-bundle
+            artifact-path: build/app/outputs/bundle/release/app-release.aab
+          - os: macos-latest
+            target: ios
+            artifact-name: ios-app
+            artifact-path: build/ios/iphoneos/Runner.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build APK
+        if: matrix.target == 'apk'
+        working-directory: mobile
+        run: |
+          flutter build apk --release --split-per-abi
+          echo "### Android APK Build :robot:" >> $GITHUB_STEP_SUMMARY
+          echo "APK built successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "Size: $(ls -lh build/app/outputs/flutter-apk/*.apk | awk '{print $5}')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build App Bundle
+        if: matrix.target == 'appbundle'
+        working-directory: mobile
+        run: flutter build appbundle --release
+
+      - name: Build iOS
+        if: matrix.target == 'ios'
+        working-directory: mobile
+        run: |
+          flutter build ios --release --no-codesign
+          echo "### iOS Build :apple:" >> $GITHUB_STEP_SUMMARY
+          echo "iOS app built successfully!" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: mobile/${{ matrix.artifact-path }}
+          retention-days: 30
+
+  build-backend:
+    name: Build Backend Docker Image
+    runs-on: ubuntu-latest
+    needs: [backend-test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: |
+            nqi-backend:latest
+            nqi-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/nqi-backend.tar
+
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-backend
+          path: /tmp/nqi-backend.tar
+          retention-days: 7
+
+  # =================================================
+  # Security Scanning
+  # =================================================
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Check for security vulnerabilities with pip-audit
+        working-directory: backend
+        run: |
+          uv pip install pip-audit
+          uv run pip-audit
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/javascript
+            p/dockerfile
+            p/ci
+          generateSarif: true
+
+      - name: Upload Semgrep results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        if: always()
+
+  # =================================================
+  # Final Status Check
+  # =================================================
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs:
+      [backend-test, frontend-test, build-mobile, build-backend, security-scan]
+    if: always()
+    steps:
+      - name: Check if all jobs passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "❌ One or more jobs failed"
+            exit 1
+          else
+            echo "✅ All jobs passed successfully!"
+          fi

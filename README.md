@@ -1,5 +1,20 @@
 # Neural Quest Interface (NQI)
 
+<!-- Status Badges -->
+
+[![CI Pipeline](https://github.com/rghsoftware/nqi/actions/workflows/ci.yml/badge.svg)](https://github.com/rghsoftware/nqi/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/rghsoftware/nqi/branch/main/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/rghsoftware/nqi)
+[![Backend Coverage](https://img.shields.io/codecov/c/github/rghsoftware/nqi?flag=backend&label=backend%20coverage)](https://codecov.io/gh/rghsoftware/nqi)
+[![Frontend Coverage](https://img.shields.io/codecov/c/github/rghsoftware/nqi?flag=frontend&label=frontend%20coverage)](https://codecov.io/gh/rghsoftware/nqi)
+[![Security Scan](https://github.com/rghsoftware/nqi/actions/workflows/codeql.yml/badge.svg)](https://github.com/rghsoftware/nqi/actions/workflows/codeql.yml)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
+<!-- Build Status -->
+
+[![Android Build](https://img.shields.io/github/actions/workflow/status/rghsoftware/nqi/ci.yml?label=Android%20Build)](https://github.com/rghsoftware/nqi/actions)
+[![iOS Build](https://img.shields.io/github/actions/workflow/status/rghsoftware/nqi/ci.yml?label=iOS%20Build)](https://github.com/rghsoftware/nqi/actions)
+[![Docker Build](https://img.shields.io/github/actions/workflow/status/rghsoftware/nqi/ci.yml?label=Docker%20Build)](https://github.com/rghsoftware/nqi/actions)
+
 ## Transform Your ADHD Brain's Endless Ideas Into Finished Projects
 
 Neural Quest Interface is a revolutionary project management system designed

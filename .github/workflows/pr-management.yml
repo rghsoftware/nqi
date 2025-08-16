@@ -13,7 +13,7 @@ jobs:
         uses: actions/add-to-project@v0.5.0
         with:
           project-url: https://github.com/users/${{ github.repository_owner }}/projects/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
 
       - name: Move merged PR to Done and add completed label
         if: github.event.action == 'closed' && github.event.pull_request.merged == true

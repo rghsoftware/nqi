@@ -9,7 +9,7 @@ on:
 env:
   # Update these with your actual values
   PROJECT_NUMBER: 6
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
 jobs:
   debug-context:

@@ -7,265 +7,328 @@ on:
     types: [opened, closed]
 
 env:
+  # Update these with your actual values
   PROJECT_NUMBER: 6
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+  debug-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug GitHub context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('Repository owner:', context.repo.owner);
+            console.log('Repository name:', context.repo.repo);
+            console.log('Actor:', context.actor);
+            console.log('Event name:', context.eventName);
+            console.log('Project number:', process.env.PROJECT_NUMBER);
+
   update-project-board:
     runs-on: ubuntu-latest
     steps:
-      - name: Add issue to Idea Greenhouse
-        if: github.event_name == 'issues' && github.event.action == 'opened'
+      - name: Find and update project
         uses: actions/github-script@v7
         with:
           script: |
-            // Get project ID
-            const query = `
-              query {
-                user(login: "${context.repo.owner}") {
-                  projectV2(number: ${process.env.PROJECT_NUMBER}) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                          options {
-                            id
-                            name
+            const projectNumber = parseInt(process.env.PROJECT_NUMBER);
+
+            // Function to find project in different locations
+            async function findProject() {
+              // Try 1: Repository project
+              try {
+                console.log('Trying repository project...');
+                const repoQuery = `
+                  query {
+                    repository(owner: "${context.repo.owner}", name: "${context.repo.repo}") {
+                      projectV2(number: ${projectNumber}) {
+                        id
+                        title
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2Field {
+                              id
+                              name
+                            }
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                              options {
+                                id
+                                name
+                              }
+                            }
                           }
                         }
                       }
                     }
                   }
+                `;
+
+                const repoResult = await github.graphql(repoQuery);
+                if (repoResult.repository.projectV2) {
+                  console.log('Found repository project');
+                  return { project: repoResult.repository.projectV2, type: 'repository' };
                 }
+              } catch (error) {
+                console.log('Repository project not found:', error.message);
               }
-            `;
 
-            const result = await github.graphql(query);
-            const project = result.user.projectV2;
+              // Try 2: User project
+              try {
+                console.log('Trying user project...');
+                const userQuery = `
+                  query {
+                    user(login: "${context.repo.owner}") {
+                      projectV2(number: ${projectNumber}) {
+                        id
+                        title
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2Field {
+                              id
+                              name
+                            }
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                              options {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `;
 
-            if (!project) {
-              console.log('Project not found');
-              return;
+                const userResult = await github.graphql(userQuery);
+                if (userResult.user && userResult.user.projectV2) {
+                  console.log('Found user project');
+                  return { project: userResult.user.projectV2, type: 'user' };
+                }
+              } catch (error) {
+                console.log('User project not found:', error.message);
+              }
+
+              // Try 3: Organization project
+              try {
+                console.log('Trying organization project...');
+                const orgQuery = `
+                  query {
+                    organization(login: "${context.repo.owner}") {
+                      projectV2(number: ${projectNumber}) {
+                        id
+                        title
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2Field {
+                              id
+                              name
+                            }
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                              options {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `;
+
+                const orgResult = await github.graphql(orgQuery);
+                if (orgResult.organization && orgResult.organization.projectV2) {
+                  console.log('Found organization project');
+                  return { project: orgResult.organization.projectV2, type: 'organization' };
+                }
+              } catch (error) {
+                console.log('Organization project not found:', error.message);
+              }
+
+              throw new Error(`Project ${projectNumber} not found in repository, user, or organization`);
             }
 
-            // Add item to project
-            const addItemMutation = `
-              mutation {
-                addProjectV2ItemById(input: {
-                  projectId: "${project.id}"
-                  contentId: "${context.payload.issue.node_id}"
-                }) {
-                  item {
-                    id
-                  }
-                }
-              }
-            `;
-
-            const addResult = await github.graphql(addItemMutation);
-            const itemId = addResult.addProjectV2ItemById.item.id;
-
-            // Find "Status" field and "Idea Greenhouse" option
-            const statusField = project.fields.nodes.find(field => field.name === 'Status');
-            if (statusField) {
-              const ideaGreenhouseOption = statusField.options?.find(option => option.name === 'Idea Greenhouse');
-
-              if (ideaGreenhouseOption) {
-                const updateMutation = `
+            // Function to add item to project
+            async function addItemToProject(project, contentId, statusName) {
+              try {
+                // Add item to project
+                const addItemMutation = `
                   mutation {
-                    updateProjectV2ItemFieldValue(input: {
+                    addProjectV2ItemById(input: {
                       projectId: "${project.id}"
-                      itemId: "${itemId}"
-                      fieldId: "${statusField.id}"
-                      value: {
-                        singleSelectOptionId: "${ideaGreenhouseOption.id}"
-                      }
+                      contentId: "${contentId}"
                     }) {
-                      projectV2Item {
+                      item {
                         id
                       }
                     }
                   }
                 `;
 
-                await github.graphql(updateMutation);
-                console.log('Issue added to Idea Greenhouse');
-              }
-            }
+                const addResult = await github.graphql(addItemMutation);
+                const itemId = addResult.addProjectV2ItemById.item.id;
+                console.log('Item added to project with ID:', itemId);
 
-      - name: Add PR to In Review
-        if: github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // Similar logic as above but for "In Review" status
-            const query = `
-              query {
-                user(login: "${context.repo.owner}") {
-                  projectV2(number: ${process.env.PROJECT_NUMBER}) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                          options {
+                // Find status field and set status
+                const statusField = project.fields.nodes.find(field =>
+                  field.name === 'Status' || field.name === 'status'
+                );
+
+                if (statusField && statusField.options) {
+                  const statusOption = statusField.options.find(option =>
+                    option.name === statusName
+                  );
+
+                  if (statusOption) {
+                    const updateMutation = `
+                      mutation {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: "${project.id}"
+                          itemId: "${itemId}"
+                          fieldId: "${statusField.id}"
+                          value: {
+                            singleSelectOptionId: "${statusOption.id}"
+                          }
+                        }) {
+                          projectV2Item {
                             id
-                            name
                           }
                         }
                       }
-                    }
+                    `;
+
+                    await github.graphql(updateMutation);
+                    console.log(`Item moved to ${statusName}`);
+                  } else {
+                    console.log(`Status option "${statusName}" not found. Available options:`,
+                      statusField.options.map(opt => opt.name));
                   }
+                } else {
+                  console.log('Status field not found. Available fields:',
+                    project.fields.nodes.map(field => field.name));
                 }
+
+                return itemId;
+              } catch (error) {
+                console.error('Error adding item to project:', error);
+                throw error;
               }
-            `;
-
-            const result = await github.graphql(query);
-            const project = result.user.projectV2;
-
-            if (!project) {
-              console.log('Project not found');
-              return;
             }
 
-            const addItemMutation = `
-              mutation {
-                addProjectV2ItemById(input: {
-                  projectId: "${project.id}"
-                  contentId: "${context.payload.pull_request.node_id}"
-                }) {
-                  item {
-                    id
-                  }
-                }
-              }
-            `;
-
-            const addResult = await github.graphql(addItemMutation);
-            const itemId = addResult.addProjectV2ItemById.item.id;
-
-            const statusField = project.fields.nodes.find(field => field.name === 'Status');
-            if (statusField) {
-              const inReviewOption = statusField.options?.find(option => option.name === 'In Review');
-
-              if (inReviewOption) {
-                const updateMutation = `
-                  mutation {
-                    updateProjectV2ItemFieldValue(input: {
-                      projectId: "${project.id}"
-                      itemId: "${itemId}"
-                      fieldId: "${statusField.id}"
-                      value: {
-                        singleSelectOptionId: "${inReviewOption.id}"
-                      }
-                    }) {
-                      projectV2Item {
-                        id
+            // Function to move existing item
+            async function moveItemInProject(project, contentNumber, statusName, contentType) {
+              try {
+                // Find the item in the project
+                const itemsQuery = `
+                  query {
+                    node(id: "${project.id}") {
+                      ... on ProjectV2 {
+                        items(first: 100) {
+                          nodes {
+                            id
+                            content {
+                              ... on Issue {
+                                number
+                              }
+                              ... on PullRequest {
+                                number
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
                 `;
 
-                await github.graphql(updateMutation);
-                console.log('PR added to In Review');
-              }
-            }
+                const itemsResult = await github.graphql(itemsQuery);
+                const projectItems = itemsResult.node.items.nodes;
 
-      - name: Move merged PR to Done
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // Find the PR item in the project and move it to Done
-            const query = `
-              query {
-                user(login: "${context.repo.owner}") {
-                  projectV2(number: ${process.env.PROJECT_NUMBER}) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                          options {
+                const targetItem = projectItems.find(item =>
+                  item.content && item.content.number === contentNumber
+                );
+
+                if (!targetItem) {
+                  console.log(`${contentType} #${contentNumber} not found in project`);
+                  return;
+                }
+
+                // Find status field and update
+                const statusField = project.fields.nodes.find(field =>
+                  field.name === 'Status' || field.name === 'status'
+                );
+
+                if (statusField && statusField.options) {
+                  const statusOption = statusField.options.find(option =>
+                    option.name === statusName
+                  );
+
+                  if (statusOption) {
+                    const updateMutation = `
+                      mutation {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: "${project.id}"
+                          itemId: "${targetItem.id}"
+                          fieldId: "${statusField.id}"
+                          value: {
+                            singleSelectOptionId: "${statusOption.id}"
+                          }
+                        }) {
+                          projectV2Item {
                             id
-                            name
                           }
                         }
                       }
-                    }
-                    items(first: 100) {
-                      nodes {
-                        id
-                        content {
-                          ... on PullRequest {
-                            id
-                            number
-                          }
-                        }
-                      }
-                    }
+                    `;
+
+                    await github.graphql(updateMutation);
+                    console.log(`${contentType} moved to ${statusName}`);
                   }
                 }
+              } catch (error) {
+                console.error('Error moving item:', error);
+                throw error;
               }
-            `;
-
-            const result = await github.graphql(query);
-            const project = result.user.projectV2;
-
-            if (!project) {
-              console.log('Project not found');
-              return;
             }
 
-            // Find the PR item
-            const prItem = project.items.nodes.find(item =>
-              item.content && item.content.number === context.payload.pull_request.number
-            );
+            // Main logic
+            try {
+              const { project, type } = await findProject();
+              console.log(`Using ${type} project: ${project.title}`);
 
-            if (!prItem) {
-              console.log('PR not found in project');
-              return;
-            }
-
-            const statusField = project.fields.nodes.find(field => field.name === 'Status');
-            if (statusField) {
-              const doneOption = statusField.options?.find(option => option.name === 'Done');
-
-              if (doneOption) {
-                const updateMutation = `
-                  mutation {
-                    updateProjectV2ItemFieldValue(input: {
-                      projectId: "${project.id}"
-                      itemId: "${prItem.id}"
-                      fieldId: "${statusField.id}"
-                      value: {
-                        singleSelectOptionId: "${doneOption.id}"
-                      }
-                    }) {
-                      projectV2Item {
-                        id
-                      }
-                    }
-                  }
-                `;
-
-                await github.graphql(updateMutation);
-                console.log('PR moved to Done');
+              if (github.event_name === 'issues' && github.event.action === 'opened') {
+                await addItemToProject(
+                  project,
+                  context.payload.issue.node_id,
+                  'Idea Greenhouse'
+                );
+              } else if (github.event_name === 'pull_request' && github.event.action === 'opened') {
+                await addItemToProject(
+                  project,
+                  context.payload.pull_request.node_id,
+                  'In Review'
+                );
+              } else if (github.event_name === 'pull_request' &&
+                         github.event.action === 'closed' &&
+                         github.event.pull_request.merged === true) {
+                await moveItemInProject(
+                  project,
+                  context.payload.pull_request.number,
+                  'Done',
+                  'Pull Request'
+                );
               }
+
+            } catch (error) {
+              console.error('Workflow failed:', error);
+              // Don't fail the workflow, just log the error
+              console.log('Project automation failed, but continuing workflow');
             }
